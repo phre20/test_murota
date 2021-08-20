@@ -1,120 +1,71 @@
-
 import streamlit as st
-import numpy as np
-import pandas as pd
 from PIL import Image
-from glob import glob
-import random
-import re
+import boto3
+import os
+import time
 
 st.set_page_config(
-    page_title = 'Photo Contest 2021 v2',
+    page_title = 'Photo Upload',
     page_icon = '📷',
 )
 
-"""
-# 技開・PFC フォトコンテスト ２０２１２
-## 写真評価システム
-### ランダムに抽出された4枚の写真にいいね👍と思ったものを回答フォームで評価してくてださい
-"""
+pre_password = st.secrets["PRE_PASSWORD"]
+input_password = st.text_input("パスワード", help="事前に事務局より通知されたパスワードを半角英数字で入力してください", value="", type="password")
 
-image_dir = "C:/Users/mukot/Desktop/photo/*.jpg"
-
-@st.cache
-def image_read(image_dir):
-
-     img_list = glob(image_dir)
-     img_pick_list = random.sample(img_list, 4)
-     return img_pick_list
-
-
-four_images = image_read(image_dir)
-img_name1 = four_images[0].split("\\")[1]
-img_name2 = four_images[1].split("\\")[1]
-img_name3 = four_images[2].split("\\")[1]
-img_name4 = four_images[3].split("\\")[1]
-
-
-comment = "ここに写真のコメントが表示される。"
-
-          
-with st.form(key='my_form'):
-     st.write("いいね👍とおもった写真をえらんでチェックしてください ※複数回答可")
-
-     kpi1, kpi2 = st.beta_columns(2)
-
-     with kpi1:
-          img = Image.open(four_images[0])     
-          st.image(img, caption=img_name1)
-          st.write(comment)
-          c_1 = st.checkbox("いいね👍　"+img_name1)
-          add_selectbox1 = st.selectbox(
-              img_name1+"は何位ですか？",
-              ('1位', '2位', '3位', "4位")
-          )  
-
-
-     with kpi2:
-          img = Image.open(four_images[1])
-          st.image(img, caption=img_name2)
-          st.write(comment)
-          c_2 = st.checkbox("いいね👍　"+img_name2)
-          add_selectbox2 = st.selectbox(
-              img_name2+"は何位ですか？",
-              ('1位', '2位', '3位', "4位")
-          )  
-
-     kpi1, kpi2 = st.beta_columns(2)
-
-     with kpi1:
-          img = Image.open(four_images[2])
-          st.image(img, caption=img_name3)
-          st.write(comment)
-          c_3 = st.checkbox("いいね👍　"+img_name3)
-          add_selectbox3 = st.selectbox(
-              img_name3+"は何位ですか？",
-              ('1位', '2位', '3位', "4位")
-          )  
-
-     with kpi2:
-          img = Image.open(four_images[3])
-          st.image(img, caption=img_name4)
-          st.write(comment)
-          c_4 = st.checkbox("いいね👍　"+img_name4)
-          add_selectbox4 = st.selectbox(
-              img_name4+"は何位ですか？",
-              ('1位', '2位', '3位', "4位")
-          )  
-
-     sales_id = st.text_input(label='社員番号を半角で入力してください')
-     name = st.text_input('名前を入力してください')
-     
-
-     submit_button = st.form_submit_button(label='送信')
-     
-     #選択した順位のうち数字だけ取り出す
-     num1 = int(re.sub("\\D", "",add_selectbox1))
-     num2 = int(re.sub("\\D", "",add_selectbox2))
-     num3 = int(re.sub("\\D", "",add_selectbox3))
-     num4 = int(re.sub("\\D", "",add_selectbox4))
-
+if str(pre_password) != str(input_password):
+    st.warning('写真を投稿するにはパスワードを入力してください')
+    st.stop()
     
-if submit_button:
-    st.write(add_selectbox1,add_selectbox2,add_selectbox3,add_selectbox4)
-    if num1*num2*num3*num4==24 and num1+num2+num3+num4==10:#24=3*(1*2*4)or3*(2*2*2)→(1,2,3,4)or(2,2,2,3)
-        st.write(f"{name}さんの評価結果が送信されました。\nご協力ありがとうございました。")
-        st.write(sales_id)
-        st.write(name)
-        st.write(c_1, c_2, c_3, c_4)
-        if c_1:
-            st.write(img_name1)
-        if c_2:
-            st.write(img_name2)
-        if c_3:
-            st.write(img_name3)
-        if c_4:
-            st.write(img_name4)
+tempo = st.success('認証成功')
+time.sleep(1)
+tempo.balloons()
 
-    else:
-        st.write(f"投票未完了　※同じ順位は選択できません。")
-         
+s3 = boto3.client('s3',
+        aws_access_key_id= st.secrets["AWS_ACCESS_KEY_ID"],
+        aws_secret_access_key= st.secrets["AWS_SECRET_ACCESS_KEY"] ,
+        region_name='ap-northeast-1'
+)
+
+st.write(
+    """
+    # 技開・PFC フォトコンテスト ２０２１
+    ## 写真アップロードシステム
+    ### 写真とコメントを入力してください
+    """
+)
+
+with st.form(key='my_form'):
+    st.write("画像ファイルをアップロードしてください。（png、jpeg、jpg形式のみ対応しています。）")
+    uploaded_file =  st.file_uploader("ファイルアップロード", type=['png','jpeg','jpg'])
+    sales_id = st.text_input(label='社員番号を半角で入力してください')
+    department = st.selectbox("部署を選んでください。",("計測制御","IA3"))
+    nick_name = st.text_input(label='ニックネームを入力してください（任意）')
+    img_type = st.selectbox("提出先の部門を選択してください",("風景","生き物","AIが間違えるか","ステイホーム","買ってよかったもの","映え"))
+    img_title = st.text_input('写真のタイトルを入力してください')
+    comment = st.text_area('写真に対するコメントを入力してください')
+    submit_button = st.form_submit_button(label='提出')
+
+if uploaded_file is not None:
+    #file_details = {"FileName":uploaded_file.name,"FileType":uploaded_file.type,"FileSize":uploaded_file.size}
+    #st.write(file_details)
+    # st.write(uploaded_file)
+    try:
+        img = Image.open(uploaded_file)
+        name = uploaded_file.name
+        st.image(img, caption=name)
+    except:
+        st.error("このファイルは画像ではないのでプレビューできません")
+
+
+if submit_button == True:
+    try:
+        os.makedirs("./uploaded/", exist_ok=True)
+        img.save("./uploaded/" + name )
+        st.write(comment)
+        s3 = boto3.resource('s3') #S3オブジェクトを取得
+        bucket = s3.Bucket('photocontest')
+        bucket.upload_file("./uploaded/" + name, name)
+        os.remove("./uploaded/" + name)
+
+    except:
+        st.error("このファイル形式は対応していません。'png','jpeg','jpg'形式で再度アップロードしてください。")
