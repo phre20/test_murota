@@ -1,0 +1,174 @@
+# -*- coding: utf-8 -*-
+
+import streamlit as st
+from PIL import Image
+import boto3
+import os
+import time
+
+st.set_page_config(
+    page_title = 'Photo Upload',
+    page_icon = '📷',
+)
+
+
+#################################################################################
+# edit internal files
+
+
+# # os.makedirs("/home/appuser/.aws/", exist_ok=True)
+# ls = os.listdir("/home/appuser/.aws/")
+# # currentdir = os.getcwd("/")
+ 
+# # st.write(currentdir)
+# st.write(ls)
+
+# f = open('/home/appuser/.aws/credentials', 'w')
+# test = st.secrets["AWS_ACCESS_KEY_ID"]
+# test2 = st.secrets["AWS_SECRET_ACCESS_KEY"]
+# f.write(f'[default]\naws_access_key_id = {test}\naws_secret_access_key = {test2}')
+# f.close()
+
+# st.write(test)
+# st.write(test2)
+
+# f = open('/home/appuser/.aws/credentials', 'r')
+# st.write(f.read())
+# f.close()
+
+# f = open('/home/appuser/.aws/config', 'w')
+# f.write("[default]\nregion = ap-northeast-1")
+# f.close()
+
+# ls = os.listdir("/home/appuser/.aws/")
+# st.write(ls)
+
+#################################################################################
+
+
+
+#pre_password = st.secrets["PRE_PASSWORD"]
+#input_password = st.text_input("パスワード", help="事前に事務局より通知されたパスワードを半角英数字で入力してください", value="", type="password")
+
+#if str(pre_password) != str(input_password):
+#    st.warning('写真を投稿するにはパスワードを入力してください')
+#    st.stop()
+
+# form機能を使わない場合風船などは使わない
+# tempo = st.success('認証成功')
+# time.sleep(1)
+# tempo.balloons()
+
+#s3 = boto3.client('s3',
+#        aws_access_key_id= st.secrets["AWS_ACCESS_KEY_ID"],
+#        aws_secret_access_key= st.secrets["AWS_SECRET_ACCESS_KEY"] ,
+#        region_name='ap-northeast-1'
+#)
+
+st.write(
+    """
+    # 技開・PFC フォトコンテスト ２０２１
+    ## 写真アップロードシステム
+    ### 写真とコメントを入力してください
+    """
+)
+
+# LDP = tuple(st.secrets["LDP"])
+# SDP_a = tuple(st.secrets["SDP_a"])
+# SDP_b = tuple(st.secrets["SDP_b"])
+# SDP_c = tuple(st.secrets["SDP_c"])
+# SDP_d = tuple(st.secrets["SDP_d"])
+
+LDP = ["aaa","bbb", "ccc", "other"]
+SDP_a = ["a_1234","a_567", "a_89"]
+SDP_b = ["b_1234","b_567", "b_89"]
+SDP_c = ["c_1234","c_567", "c_89"]
+SDP_d = ["test_company","write direct"]
+
+
+# LDP = tuple(LDP)
+# SDP_a = tuple(SDP_a)
+# SDP_b = tuple(SDP_b)
+# SDP_c = tuple(SDP_c)
+# SDP_d = tuple(SDP_d)
+
+department_L = st.selectbox("所属（大分類）", LDP)
+if department_L == LDP[0]:
+    department_S = st.selectbox("所属（小分類）",SDP_a)
+elif department_L == LDP[1]:
+    department_S = st.selectbox("所属（小分類）",SDP_b)
+elif department_L == LDP[2]:
+    department_S = st.selectbox("所属（小分類）",SDP_c)
+else:
+    department_S = st.selectbox("所属（小分類）",SDP_d)
+    if department_S == SDP_d[1]:
+        department_S = st.text_input("直接記入")
+family_name = st.text_input(label="氏名（苗字のみ）  例：田中　太郎 → 「田中」")    
+nick_name = st.text_input(label='ニックネーム（任意） ※写真公開時に氏名を公開したくない方は入力して下さい。')
+img_type = st.selectbox("提出先の部門",("風景","生き物","AIが間違えるか","ステイホーム","買ってよかったもの","映え"))
+uploaded_file =  st.file_uploader("画像ファイルをアップロードしてください。（png、jpeg、jpg形式のみ対応しています。）", type=['png','jpeg','jpg'])
+if uploaded_file is not None:
+    #file_details = {"FileName":uploaded_file.name,"FileType":uploaded_file.type,"FileSize":uploaded_file.size}
+    #st.write(file_details)
+    # st.write(uploaded_file)
+    try:
+        img = Image.open(uploaded_file)
+        name = uploaded_file.name
+        st.image(img, caption=name)
+    except:
+        st.error("この画像はプレビューできません")
+
+
+img_title = st.text_input('写真のタイトル')
+comment = st.text_area('写真に対するコメント')
+
+submit_button2 = st.button(label='提出')
+
+
+
+
+if submit_button2 == True:
+    try:
+        os.makedirs("./uploaded/", exist_ok=True)
+        rnd_number = str(time.time())[-6:]
+        img.save("./uploaded/"+ rnd_number + "_" + name )
+        s3 = boto3.resource('s3') #S3オブジェクトを取得
+        bucket = s3.Bucket('photocon2')
+        bucket.upload_file("./uploaded/"+ rnd_number + "_" + name, rnd_number + "_" + name)
+        os.remove("./uploaded/"+ rnd_number + "_" + name)
+        st.success(
+            f'写真のアップロードが完了しました\n ファイル名:{name}\n\n部門：{department_L}\n\n部門：{img_type}\n\n部門：{img_title}\n\nコメント名:{comment}'
+            )
+
+    except:
+        st.error("エラー")
+
+
+import json
+import ndjson
+
+
+#投稿された情報をdict形式にする
+save_data_dict = {'sales_id': sales_id, 'department_L':department_L,'department_S':department_S,'family_name':family_name,'nick_name':nick_name,'img_type':img_type,'img_title':img_title, 'comment': comment, 'pass':"./uploaded/"+ rnd_number + "_" + name}
+
+filename = './uploaded/save_data.ndjson'
+
+
+with open(filename, 'a') as f:
+    writer = ndjson.writer(f,ensure_ascii=False)
+    writer.writerow(save_data_dict)
+
+
+with open(filename) as f:
+    data = ndjson.load(f)
+st.write(data)
+
+#CSV形式にする
+import csv
+
+csv_filename='./uploaded/save_data.csv'
+
+with open(csv_filename,'w',newline='') as f:
+    writer = csv.writer(f)
+    for i in range(0,len(data),1):
+        writer.writerow(data[i].values())
