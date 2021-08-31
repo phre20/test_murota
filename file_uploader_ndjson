@@ -5,6 +5,8 @@ from PIL import Image
 import boto3
 import os
 import time
+import ndjson
+import csv
 
 st.set_page_config(
     page_title = 'Photo Upload',
@@ -140,35 +142,24 @@ if submit_button2 == True:
             f'写真のアップロードが完了しました\n ファイル名:{name}\n\n部門：{department_L}\n\n部門：{img_type}\n\n部門：{img_title}\n\nコメント名:{comment}'
             )
 
+        
+        #投稿された情報をdict形式にする
+        save_data_dict = {'sales_id': sales_id, 'department_L':department_L,'department_S':department_S,'family_name':family_name,'nick_name':nick_name,'img_type':img_type,'img_title':img_title, 'comment': comment, 'pass':"./uploaded/"+ rnd_number + "_" + name}
+
+        filename = './uploaded/'+ rnd_number + '_' + name + '.ndjson'
+
+
+        with open(filename, 'a') as f:
+            writer = ndjson.writer(f,ensure_ascii=False)
+            writer.writerow(save_data_dict)
+
+
+        with open(filename) as f:
+            data = ndjson.load(f)
+        st.write(data)
+
+
     except:
         st.error("エラー")
 
 
-import json
-import ndjson
-
-
-#投稿された情報をdict形式にする
-save_data_dict = {'sales_id': sales_id, 'department_L':department_L,'department_S':department_S,'family_name':family_name,'nick_name':nick_name,'img_type':img_type,'img_title':img_title, 'comment': comment, 'pass':"./uploaded/"+ rnd_number + "_" + name}
-
-filename = './uploaded/save_data.ndjson'
-
-
-with open(filename, 'a') as f:
-    writer = ndjson.writer(f,ensure_ascii=False)
-    writer.writerow(save_data_dict)
-
-
-with open(filename) as f:
-    data = ndjson.load(f)
-st.write(data)
-
-#CSV形式にする
-import csv
-
-csv_filename='./uploaded/save_data.csv'
-
-with open(csv_filename,'w',newline='') as f:
-    writer = csv.writer(f)
-    for i in range(0,len(data),1):
-        writer.writerow(data[i].values())
